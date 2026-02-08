@@ -1,120 +1,181 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>The Listening Room</title>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-	<style>
-		:root {
-			--bg: #0f0f0f;
-			--text: #e0e0e0;
-			--accent: #555;
-		}
-		body {
-			background-color: var(--bg);
-			color: var(--text);
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 100vh;
-			margin: 0;
-			text-align: center;
-			padding: 20px;
-		}
-		.container { max-width: 600px; width: 100%; }
-		h1 { font-weight: 200; letter-spacing: 2px; color: var(--accent); margin-bottom: 2rem; }
-		
-		#result { margin-top: 2rem; display: none; }
-		.album { font-size: 2.5rem; font-weight: 700; line-height: 1.1; margin-bottom: 0.5rem; }
-		.artist { font-size: 1.5rem; font-weight: 300; color: #888; margin-bottom: 2rem; }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Listening Room</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+        <style>
+            :root {
+                --bg: #0f0f0f;
+                --text: #e0e0e0;
+                --accent: #555;
+            }
+            body {
+                background-color: var(--bg);
+                color: var(--text);
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                margin: 0;
+                text-align: center;
+                padding: 20px;
+            }
+            .container {
+                max-width: 600px;
+                width: 100%;
+            }
+            h1 {
+                font-weight: 200;
+                letter-spacing: 2px;
+                color: var(--accent);
+                margin-bottom: 2rem;
+            }
 
-		button, label {
-			background: none;
-			border: 1px solid var(--accent);
-			color: var(--text);
-			padding: 12px 24px;
-			font-size: 1rem;
-			cursor: pointer;
-			transition: all 0.3s ease;
-			text-transform: uppercase;
-			letter-spacing: 1px;
-			display: inline-block;
-		}
-		button:hover, label:hover { background: var(--text); color: var(--bg); }
-		input[type="file"] { display: none; }
-		.hidden { display: none; }
-	</style>
-</head>
-<body>
+            #result {
+                margin-top: 2rem;
+                display: none;
+            }
+            .album {
+                font-size: 2.5rem;
+                font-weight: 700;
+                line-height: 1.1;
+                margin-bottom: 0.5rem;
+            }
+            .artist {
+                font-size: 1.5rem;
+                font-weight: 300;
+                color: #888;
+                margin-bottom: 2rem;
+            }
 
-	<div class="container">
-		<h1 id="header">THE LISTENING ROOM</h1>
+            button,
+            label {
+                background: none;
+                border: 1px solid var(--accent);
+                color: var(--text);
+                padding: 12px 24px;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                display: inline-block;
+            }
+            button:hover,
+            label:hover {
+                background: var(--text);
+                color: var(--bg);
+            }
+            input[type="file"] {
+                display: none;
+            }
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 id="header">THE LISTENING ROOM</h1>
 
-		<div id="upload-section">
-			<label for="csv-upload">Load Roon CSV</label>
-			<input type="file" id="csv-upload" accept=".csv">
-		</div>
+            <div id="upload-section">
+                <label for="csv-upload">Upload file</label>
+                <input type="file" id="csv-upload" accept=".csv" />
+            </div>
 
-		<div id="action-section" class="hidden">
-			<button onclick="pickAlbum()">Find Today's Album</button>
-		</div>
+            <div id="action-section" class="hidden">
+                <button onclick="pickAlbum()">Find Today's Album</button>
+            </div>
 
-		<div id="result">
-			<div class="album" id="display-album"></div>
-			<div class="artist" id="display-artist"></div>
-			<button onclick="pickAlbum()">Shuffle Again</button>
-		</div>
-	</div>
+            <div id="result">
+                <div class="album" id="display-album"></div>
+                <div class="artist" id="display-artist"></div>
+                <button onclick="pickAlbum()">Shuffle Again</button>
+            </div>
+        </div>
 
-<script>
-		let albumList = [];
-	
-		document.getElementById('csv-upload').addEventListener('change', function(e) {
-			const file = e.target.files[0];
-			Papa.parse(file, {
-				header: true,
-				skipEmptyLines: true,
-				transformHeader: function(h) {
-					// This removes hidden spaces or BOM characters from your CSV headers
-					return h.trim();
-				},
-				complete: function(results) {
-					// Log headers to the browser console for debugging
-					console.log("Detected Headers:", Object.keys(results.data[0]));
-					
-					// De-duplicate by the 'Title' column
-					const unique = [...new Map(results.data.map(item => [item['Title'], item])).values()];
-					
-					// Flexible check for your specific headers
-					albumList = unique.filter(a => a['Title'] && a['Album Artist']);
-					
-					if (albumList.length > 0) {
-						document.getElementById('upload-section').classList.add('hidden');
-						document.getElementById('action-section').classList.remove('hidden');
-						document.getElementById('header').innerText = `${albumList.length} ALBUMS LOADED`;
-					} else {
-						// Diagnostic alert to tell you exactly what headers were found
-						const foundHeaders = Object.keys(results.data[0]).join(", ");
-						alert("Error: Found these headers instead: " + foundHeaders);
-					}
-				}
-			});
-		});
-	
-		function pickAlbum() {
-			if (albumList.length === 0) return;
-			const randomIndex = Math.floor(Math.random() * albumList.length);
-			const selection = albumList[randomIndex];
-	
-			document.getElementById('action-section').classList.add('hidden');
-			document.getElementById('result').style.display = 'block';
-			
-			document.getElementById('display-album').innerText = selection['Title'];
-			document.getElementById('display-artist').innerText = selection['Album Artist'];
-		}
-	</script>
-</body>
+        <script>
+            let albumList = [];
+
+            document
+                .getElementById("csv-upload")
+                .addEventListener("change", function (e) {
+                    const file = e.target.files[0];
+                    Papa.parse(file, {
+                        header: true,
+                        skipEmptyLines: true,
+                        transformHeader: function (h) {
+                            // This removes hidden spaces or BOM characters from your CSV headers
+                            return h.trim();
+                        },
+                        complete: function (results) {
+                            // Log headers to the browser console for debugging
+                            console.log(
+                                "Detected Headers:",
+                                Object.keys(results.data[0]),
+                            );
+
+                            // De-duplicate by the 'Title' column
+                            const unique = [
+                                ...new Map(
+                                    results.data.map((item) => [
+                                        item["Title"],
+                                        item,
+                                    ]),
+                                ).values(),
+                            ];
+
+                            // Flexible check for your specific headers
+                            albumList = unique.filter(
+                                (a) => a["Title"] && a["Album Artist"],
+                            );
+
+                            if (albumList.length > 0) {
+                                document
+                                    .getElementById("upload-section")
+                                    .classList.add("hidden");
+                                document
+                                    .getElementById("action-section")
+                                    .classList.remove("hidden");
+                                document.getElementById("header").innerText =
+                                    `${albumList.length} ALBUMS LOADED`;
+                            } else {
+                                // Diagnostic alert to tell you exactly what headers were found
+                                const foundHeaders = Object.keys(
+                                    results.data[0],
+                                ).join(", ");
+                                alert(
+                                    "Error: Found these headers instead: " +
+                                        foundHeaders,
+                                );
+                            }
+                        },
+                    });
+                });
+
+            function pickAlbum() {
+                if (albumList.length === 0) return;
+                const randomIndex = Math.floor(
+                    Math.random() * albumList.length,
+                );
+                const selection = albumList[randomIndex];
+
+                document
+                    .getElementById("action-section")
+                    .classList.add("hidden");
+                document.getElementById("result").style.display = "block";
+
+                document.getElementById("display-album").innerText =
+                    selection["Title"];
+                document.getElementById("display-artist").innerText =
+                    selection["Album Artist"];
+            }
+        </script>
+    </body>
 </html>
