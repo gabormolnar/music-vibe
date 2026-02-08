@@ -69,40 +69,51 @@
 		</div>
 	</div>
 
-	<script>
+<script>
 		let albumList = [];
-
+	
 		document.getElementById('csv-upload').addEventListener('change', function(e) {
 			const file = e.target.files[0];
 			Papa.parse(file, {
 				header: true,
 				skipEmptyLines: true,
+				transformHeader: function(h) {
+					// This removes hidden spaces or BOM characters from your CSV headers
+					return h.trim();
+				},
 				complete: function(results) {
-					// Roon CSVs usually have 'Album' and 'Artist' columns
-					// We de-duplicate by Album name to ensure fair odds
-					const unique = [...new Map(results.data.map(item => [item['Album'], item])).values()];
-					albumList = unique.filter(a => a.Album && a.Artist);
+					// Log headers to the browser console for debugging
+					console.log("Detected Headers:", Object.keys(results.data[0]));
+					
+					// De-duplicate by the 'Title' column
+					const unique = [...new Map(results.data.map(item => [item['Title'], item])).values()];
+					
+					// Flexible check for your specific headers
+					albumList = unique.filter(a => a['Title'] && a['Album Artist']);
 					
 					if (albumList.length > 0) {
 						document.getElementById('upload-section').classList.add('hidden');
 						document.getElementById('action-section').classList.remove('hidden');
 						document.getElementById('header').innerText = `${albumList.length} ALBUMS LOADED`;
 					} else {
-						alert("Could not find Album/Artist columns. Check your CSV format.");
+						// Diagnostic alert to tell you exactly what headers were found
+						const foundHeaders = Object.keys(results.data[0]).join(", ");
+						alert("Error: Found these headers instead: " + foundHeaders);
 					}
 				}
 			});
 		});
-
+	
 		function pickAlbum() {
+			if (albumList.length === 0) return;
 			const randomIndex = Math.floor(Math.random() * albumList.length);
 			const selection = albumList[randomIndex];
-
+	
 			document.getElementById('action-section').classList.add('hidden');
-			document.getElementById('result').style.display = 'block'; 
+			document.getElementById('result').style.display = 'block';
 			
-			document.getElementById('display-album').innerText = selection.Album;
-			document.getElementById('display-artist').innerText = selection.Artist;
+			document.getElementById('display-album').innerText = selection['Title'];
+			document.getElementById('display-artist').innerText = selection['Album Artist'];
 		}
 	</script>
 </body>
