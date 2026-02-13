@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="favicon.png">
     <title>The Listening Room</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
     <style>
         :root {
             --bg: #0f0f0f;
             --text: #e0e0e0;
             --accent: #555;
+            --meta: #888;
         }
         body {
             background-color: var(--bg);
@@ -32,7 +37,8 @@
             letter-spacing: 4px; 
             color: var(--accent); 
             margin-bottom: 2rem;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            text-transform: uppercase;
         }
         
         #result { margin-top: 2rem; display: none; }
@@ -48,7 +54,7 @@
         .artist { 
             font-size: 1.8rem; 
             font-weight: 300; 
-            color: #888; 
+            color: var(--meta); 
             margin-bottom: 3rem; 
         }
 
@@ -57,7 +63,7 @@
             border: 1px solid var(--accent);
             color: var(--text);
             padding: 14px 28px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
             transition: all 0.3s ease;
             text-transform: uppercase;
@@ -76,10 +82,22 @@
         .hidden { display: none; }
         
         .stats {
-            margin-top: 20px;
-            font-size: 0.8rem;
-            color: #444;
+            margin-top: 30px;
+            font-size: 0.7rem;
+            color: #333;
             text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 2;
+        }
+
+        .update-link {
+            background: none;
+            border: none;
+            color: #555;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.65rem;
+            padding: 0;
             letter-spacing: 1px;
         }
     </style>
@@ -87,10 +105,10 @@
 <body>
 
     <div class="container">
-        <h1 id="header">THE LISTENING ROOM</h1>
+        <h1 id="header">The Listening Room</h1>
 
         <div id="upload-section">
-            <label for="csv-upload">Load Roon Export</label>
+            <label for="csv-upload">Load Roon Library</label>
             <input type="file" id="csv-upload" accept=".csv">
         </div>
 
@@ -110,43 +128,70 @@
     <script>
         let albumList = [];
 
+        // Check Local Storage on page load
+        window.onload = function() {
+            const savedData = localStorage.getItem('roonLibrary');
+            if (savedData) {
+                try {
+                    albumList = JSON.parse(savedData);
+                    if (albumList.length > 0) {
+                        showActionUI(albumList.length);
+                    }
+                } catch (e) {
+                    console.error("Error loading saved library", e);
+                    localStorage.removeItem('roonLibrary');
+                }
+            }
+        };
+
+        // Handle CSV Upload
         document.getElementById('csv-upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    // Filter for rows that actually have data
-                    // Uses your specific Roon headers: 'Title' and 'Album Artist'
+                    // Map headers: Title and Album Artist
                     albumList = results.data.filter(row => row['Title'] && row['Album Artist']);
                     
                     if (albumList.length > 0) {
-                        document.getElementById('upload-section').classList.add('hidden');
-                        document.getElementById('action-section').classList.remove('hidden');
-                        document.getElementById('header').innerText = "LIBRARY READY";
-                        document.getElementById('stats').innerText = `${albumList.length} UNIQUE ALBUMS LOADED`;
+                        localStorage.setItem('roonLibrary', JSON.stringify(albumList));
+                        showActionUI(albumList.length);
                     } else {
-                        alert("Error: Could not find columns 'Title' and 'Album Artist'. Please check your Roon CSV export.");
+                        alert("Could not find required columns: 'Title' and 'Album Artist'.");
                     }
                 }
             });
         });
 
+        function showActionUI(count) {
+            document.getElementById('upload-section').classList.add('hidden');
+            document.getElementById('action-section').classList.remove('hidden');
+            document.getElementById('header').innerText = "Library Loaded";
+            document.getElementById('stats').innerHTML = `
+                ${count} Albums in Collection<br>
+                <button class="update-link" onclick="clearLibrary()">Replace Library File</button>
+            `;
+        }
+
+        function clearLibrary() {
+            if(confirm("Replace current library with a new CSV?")) {
+                localStorage.removeItem('roonLibrary');
+                location.reload();
+            }
+        }
+
         function pickAlbum() {
-            // Generate a random index based on the cleaned list length
             const randomIndex = Math.floor(Math.random() * albumList.length);
             const selection = albumList[randomIndex];
 
-            // UI Transitions
+            // Hide action button, show result
             document.getElementById('action-section').classList.add('hidden');
             document.getElementById('result').style.display = 'block';
             
-            // Display selection
+            // Update Text
             document.getElementById('display-album').innerText = selection['Title'];
             document.getElementById('display-artist').innerText = selection['Album Artist'];
-            
-            // Log to console for debugging if needed
-            console.log("Selected Album:", selection);
         }
     </script>
 </body>
