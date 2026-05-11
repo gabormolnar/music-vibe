@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Listening Room</title>
+
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
 
@@ -17,12 +18,13 @@
             --text: #e0e0e0;
             --accent: #555;
             --meta: #888;
+            --detail: #444;
         }
 
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: -apple-system, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -64,6 +66,14 @@
             font-size: 1.8rem;
             font-weight: 300;
             color: var(--meta);
+            margin-bottom: 1.5rem;
+        }
+
+        .metadata-line {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--detail);
             margin-bottom: 3rem;
         }
 
@@ -135,6 +145,7 @@
         <div id="result">
             <div class="album" id="display-album"></div>
             <div class="artist" id="display-artist"></div>
+            <div class="metadata-line" id="display-meta"></div>
             <button onclick="pickAlbum()">Shuffle Again</button>
         </div>
 
@@ -147,8 +158,12 @@
         window.onload = function () {
             const savedData = localStorage.getItem('roonLibrary');
             if (savedData) {
-                albumList = JSON.parse(savedData);
-                if (albumList.length > 0) showActionUI(albumList.length);
+                try {
+                    albumList = JSON.parse(savedData);
+                    if (albumList.length > 0) showActionUI(albumList.length);
+                } catch (e) {
+                    localStorage.removeItem('roonLibrary');
+                }
             }
         };
 
@@ -187,7 +202,7 @@
                 localStorage.setItem('roonLibrary', JSON.stringify(albumList));
                 showActionUI(albumList.length);
             } else {
-                alert("Could not find required columns or no albums met the 5-track minimum.");
+                alert("No valid albums found. Ensure columns 'Title', 'Album Artist', and 'Track Count' exist.");
             }
         }
 
@@ -196,7 +211,7 @@
             document.getElementById('action-section').classList.remove('hidden');
             document.getElementById('header').innerText = "Library Loaded";
             document.getElementById('stats').innerHTML = `
-                ${count} Albums (5+ tracks) Loaded<br>
+                ${count} Albums (5+ tracks) in Collection<br>
                 <button class="update-link" onclick="clearLibrary()">Replace Library File</button>
             `;
         }
@@ -210,10 +225,20 @@
 
         function pickAlbum() {
             const selection = albumList[Math.floor(Math.random() * albumList.length)];
+
             document.getElementById('action-section').classList.add('hidden');
             document.getElementById('result').style.display = 'block';
+
+            // Primary Display
             document.getElementById('display-album').innerText = selection['Title'];
             document.getElementById('display-artist').innerText = selection['Album Artist'];
+
+            // Metadata Display (Release Date, Genre, Tracks)
+            const year = selection['Release Date'] || 'Unknown Year';
+            const genre = selection['Genre'] || 'Unknown Genre';
+            const tracks = selection['Track Count'] || '0';
+
+            document.getElementById('display-meta').innerText = `${year} • ${genre} • ${tracks} TRACKS`;
         }
     </script>
 </body>
