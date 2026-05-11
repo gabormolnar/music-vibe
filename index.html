@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Listening Room</title>
-    
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
         :root {
             --bg: #0f0f0f;
@@ -17,10 +18,11 @@
             --accent: #555;
             --meta: #888;
         }
+
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -30,35 +32,43 @@
             text-align: center;
             padding: 20px;
         }
-        .container { max-width: 800px; width: 100%; }
-        
-        h1 { 
-            font-weight: 200; 
-            letter-spacing: 4px; 
-            color: var(--accent); 
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            font-weight: 200;
+            letter-spacing: 4px;
+            color: var(--accent);
             margin-bottom: 2rem;
             font-size: 1.1rem;
             text-transform: uppercase;
         }
-        
-        #result { margin-top: 2rem; display: none; }
-        
-        .album { 
-            font-size: 3.5rem; 
-            font-weight: 700; 
-            line-height: 1.1; 
+
+        #result {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .album {
+            font-size: 3.5rem;
+            font-weight: 700;
+            line-height: 1.1;
             margin-bottom: 0.75rem;
             letter-spacing: -1px;
         }
-        
-        .artist { 
-            font-size: 1.8rem; 
-            font-weight: 300; 
-            color: var(--meta); 
-            margin-bottom: 3rem; 
+
+        .artist {
+            font-size: 1.8rem;
+            font-weight: 300;
+            color: var(--meta);
+            margin-bottom: 3rem;
         }
 
-        button, label {
+        button,
+        label {
             background: none;
             border: 1px solid var(--accent);
             color: var(--text);
@@ -71,16 +81,22 @@
             display: inline-block;
             margin: 10px;
         }
-        
-        button:hover, label:hover { 
-            background: var(--text); 
-            color: var(--bg); 
+
+        button:hover,
+        label:hover {
+            background: var(--text);
+            color: var(--bg);
             border-color: var(--text);
         }
-        
-        input[type="file"] { display: none; }
-        .hidden { display: none; }
-        
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
         .stats {
             margin-top: 30px;
             font-size: 0.7rem;
@@ -98,18 +114,18 @@
             cursor: pointer;
             font-size: 0.65rem;
             padding: 0;
-            letter-spacing: 1px;
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
         <h1 id="header">The Listening Room</h1>
 
         <div id="upload-section">
-            <label for="csv-upload">Load Roon Library</label>
-            <input type="file" id="csv-upload" accept=".csv">
+            <label for="file-upload">Load Roon Export (CSV or XLSX)</label>
+            <input type="file" id="file-upload" accept=".csv, .xlsx">
         </div>
 
         <div id="action-section" class="hidden">
@@ -121,78 +137,85 @@
             <div class="artist" id="display-artist"></div>
             <button onclick="pickAlbum()">Shuffle Again</button>
         </div>
-        
+
         <div id="stats" class="stats"></div>
     </div>
 
     <script>
         let albumList = [];
 
-        // Check Local Storage on page load
-        window.onload = function() {
+        window.onload = function () {
             const savedData = localStorage.getItem('roonLibrary');
             if (savedData) {
-                try {
-                    albumList = JSON.parse(savedData);
-                    if (albumList.length > 0) {
-                        showActionUI(albumList.length);
-                    }
-                } catch (e) {
-                    console.error("Error loading saved library", e);
-                    localStorage.removeItem('roonLibrary');
-                }
+                albumList = JSON.parse(savedData);
+                if (albumList.length > 0) showActionUI(albumList.length);
             }
         };
 
-        // Handle CSV Upload
-        document.getElementById('csv-upload').addEventListener('change', function(e) {
+        document.getElementById('file-upload').addEventListener('change', function (e) {
             const file = e.target.files[0];
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    // Map headers: Title and Album Artist
-                    albumList = results.data.filter(row => row['Title'] && row['Album Artist']);
-                    
-                    if (albumList.length > 0) {
-                        localStorage.setItem('roonLibrary', JSON.stringify(albumList));
-                        showActionUI(albumList.length);
-                    } else {
-                        alert("Could not find required columns: 'Title' and 'Album Artist'.");
-                    }
-                }
-            });
+            const isExcel = file.name.endsWith('.xlsx');
+
+            if (isExcel) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    processData(jsonData);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => processData(results.data)
+                });
+            }
         });
+
+        function processData(data) {
+            // Apply Filters: Required columns + Minimum 5 tracks
+            albumList = data.filter(row =>
+                row['Title'] &&
+                row['Album Artist'] &&
+                parseInt(row['Track Count']) >= 5
+            );
+
+            if (albumList.length > 0) {
+                localStorage.setItem('roonLibrary', JSON.stringify(albumList));
+                showActionUI(albumList.length);
+            } else {
+                alert("Could not find required columns or no albums met the 5-track minimum.");
+            }
+        }
 
         function showActionUI(count) {
             document.getElementById('upload-section').classList.add('hidden');
             document.getElementById('action-section').classList.remove('hidden');
             document.getElementById('header').innerText = "Library Loaded";
             document.getElementById('stats').innerHTML = `
-                ${count} Albums in Collection<br>
+                ${count} Albums (5+ tracks) Loaded<br>
                 <button class="update-link" onclick="clearLibrary()">Replace Library File</button>
             `;
         }
 
         function clearLibrary() {
-            if(confirm("Replace current library with a new CSV?")) {
+            if (confirm("Replace current library?")) {
                 localStorage.removeItem('roonLibrary');
                 location.reload();
             }
         }
 
         function pickAlbum() {
-            const randomIndex = Math.floor(Math.random() * albumList.length);
-            const selection = albumList[randomIndex];
-
-            // Hide action button, show result
+            const selection = albumList[Math.floor(Math.random() * albumList.length)];
             document.getElementById('action-section').classList.add('hidden');
             document.getElementById('result').style.display = 'block';
-            
-            // Update Text
             document.getElementById('display-album').innerText = selection['Title'];
             document.getElementById('display-artist').innerText = selection['Album Artist'];
         }
     </script>
 </body>
+
 </html>
