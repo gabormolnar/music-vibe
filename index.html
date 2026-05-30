@@ -190,19 +190,33 @@
             }
         });
 
+        // Robust key finder helper to bypass formatting differences
+        function getRowValue(row, possibleKeys) {
+            const rowKeys = Object.keys(row);
+            for (let target of possibleKeys) {
+                const foundKey = rowKeys.find(k => k.trim().toLowerCase() === target.toLowerCase());
+                if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
+                    return row[foundKey];
+                }
+            }
+            return null;
+        }
+
         function processData(data) {
-            // Apply Filters: Required columns + Minimum 5 tracks
-            albumList = data.filter(row =>
-                row['Title'] &&
-                row['Album Artist'] &&
-                parseInt(row['Track Count']) >= 5
-            );
+            // Apply Filters safely mapping alternate column keys
+            albumList = data.filter(row => {
+                const title = getRowValue(row, ['Title']);
+                const artist = getRowValue(row, ['Album Artist', 'Artist']);
+                const tracks = getRowValue(row, ['Tracks', 'Track Count']);
+
+                return title && artist && parseInt(tracks) >= 5;
+            });
 
             if (albumList.length > 0) {
                 localStorage.setItem('roonLibrary', JSON.stringify(albumList));
                 showActionUI(albumList.length);
             } else {
-                alert("No valid albums found. Ensure columns 'Title', 'Album Artist', and 'Track Count' exist.");
+                alert("No valid albums found matching Roon architecture rules.");
             }
         }
 
@@ -230,13 +244,17 @@
             document.getElementById('result').style.display = 'block';
 
             // Primary Display
-            document.getElementById('display-album').innerText = selection['Title'];
-            document.getElementById('display-artist').innerText = selection['Album Artist'];
+            document.getElementById('display-album').innerText = getRowValue(selection, ['Title']) || 'Unknown Album';
+            document.getElementById('display-artist').innerText = getRowValue(selection, ['Album Artist', 'Artist']) || 'Unknown Artist';
 
-            // Metadata Display (Release Date, Genre, Tracks)
-            const year = selection['Release Date'] || 'Unknown Year';
-            const genre = selection['Genre'] || 'Unknown Genre';
-            const tracks = selection['Track Count'] || '0';
+            // Flexible Metadata Parsing (Roon Context rules applied)
+            const rawDate = getRowValue(selection, ['Release Date', 'Year']) || '';
+            // Grabs just the first 4 numerical digits if it's a full date string like YYYY-MM-DD
+            const matchYear = String(rawDate).match(/\d{4}/);
+            const year = matchYear ? matchYear[0] : 'Unknown Year';
+
+            const genre = getRowValue(selection, ['Genre']) || 'Unknown Genre';
+            const tracks = getRowValue(selection, ['Tracks', 'Track Count']) || '0';
 
             document.getElementById('display-meta').innerText = `${year} • ${genre} • ${tracks} TRACKS`;
         }
