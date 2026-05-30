@@ -178,45 +178,31 @@
                     const workbook = XLSX.read(data, { type: 'array' });
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-                    processRawData(jsonData);
+                    processData(jsonData);
                 };
                 reader.readAsArrayBuffer(file);
             } else {
                 Papa.parse(file, {
                     header: true,
                     skipEmptyLines: true,
-                    complete: (results) => processRawData(results.data)
+                    complete: (results) => processData(results.data)
                 });
             }
         });
 
-        // Deep-cleaning normalization engine to eradicate spacing and naming anomalies
-        function processRawData(rawRows) {
-            const normalized = rawRows.map(row => {
-                const cleanRow = {};
-                Object.keys(row).forEach(key => {
-                    // Remove hidden characters, strip spaces, convert to lowercase
-                    const cleanKey = key.replace(/[^\x20-\x7E]/g, "").trim().toLowerCase();
-                    cleanRow[cleanKey] = row[key];
-                });
-                return cleanRow;
-            });
-
-            // Filter out entries strictly against normalized properties
-            albumList = normalized.filter(row => {
-                const title = row['title'];
-                const artist = row['album artist'] || row['artist'];
-                const tracks = row['tracks'] || row['track count'];
-
-                return title && artist && parseInt(tracks) >= 5;
-            });
+        function processData(data) {
+            // Filter strictly matching your Roon headers
+            albumList = data.filter(row =>
+                row['Title'] &&
+                row['Album Artist'] &&
+                parseInt(row['Track Count']) >= 5
+            );
 
             if (albumList.length > 0) {
-                // Save the fully cleaned objects to browser memory
                 localStorage.setItem('roonLibrary', JSON.stringify(albumList));
                 showActionUI(albumList.length);
             } else {
-                alert("Failed to read schema variables. Check data column assignments.");
+                alert("Columns mismatch. Ensure file has Title, Album Artist, and Track Count.");
             }
         }
 
@@ -243,17 +229,16 @@
             document.getElementById('action-section').classList.add('hidden');
             document.getElementById('result').style.display = 'block';
 
-            // Render Normalized Strings
-            document.getElementById('display-album').innerText = selection['title'] || 'Unknown Album';
-            document.getElementById('display-artist').innerText = selection['album artist'] || selection['artist'] || 'Unknown Artist';
+            document.getElementById('display-album').innerText = selection['Title'] || 'Unknown Album';
+            document.getElementById('display-artist').innerText = selection['Album Artist'] || 'Unknown Artist';
 
-            // Direct matching on normalized properties
-            const rawDate = selection['release date'] || selection['year'] || '';
+            // Map directly to your explicit headers: 'Date' and 'Genres'
+            const rawDate = selection['Date'] || '';
             const matchYear = String(rawDate).match(/\d{4}/);
             const year = matchYear ? matchYear[0] : 'Unknown Year';
 
-            const genre = selection['genre'] || 'Unknown Genre';
-            const tracks = selection['tracks'] || selection['track count'] || '0';
+            const genre = selection['Genres'] || 'Unknown Genre';
+            const tracks = selection['Track Count'] || '0';
 
             document.getElementById('display-meta').innerText = `${year} • ${genre} • ${tracks} TRACKS`;
         }
